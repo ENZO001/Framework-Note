@@ -1,0 +1,96 @@
+﻿																									Transaction參數																												|
+========================================================================================================================|
+
+
+========================================================================================================================|
+API:																																																										|																																																
+https://docs.spring.io/spring/docs/current/javadoc-api/org/springframework/transaction/TransactionDefinition.html				|				
+========================================================================================================================|
+
+
+========================================================================================================================|
+傳遞行為 (propagation)																																																	|
+========================================================================================================================|
+propagation定義transaction邊界:																																													|
+1. 何時開始																																																							|
+2. 何時結束																																																							|
+3. 是否需要transaction																																																	|
+------------------------------------------------------------------------------------------------------------------------|
+PROPAGATION_REQUIRED			:	使用現存的transaction，如果沒有的話就建立一個新的transaction																|
+PROPAGATION_REQUIRES_NEW	:	建立一個新的transaction，如果有現存transaction的話就先將它暫停，轉而使用新的transaction			|
+PROPAGATION_MANDATORY			:	必須使用現存的transaction，如果沒有的話則丟出exception																			|
+PROPAGATION_SUPPORTS			:	如果有現存transaction則使用，如果沒有現存transaction則無transaction方式執行									|
+PROPAGATION_NOT_SUPPORTED	:	必須以無transaction方式執行，如果有現存transaction則先暫停現存transaction										|
+PROPAGATION_NEVER					:	必須以無transaction方式執行，如果有現存transaction則丟出exception														|
+========================================================================================================================|
+
+
+========================================================================================================================|
+隔離層級 (isolation level)																																															|
+========================================================================================================================|
+transaction的isolation特性:																																															|
+1. 多個同時進行的transaction彼此之間應該獨立，互不影響																																	|
+2. 資料庫通常會提供不同等級的isolation設定以提升應用程式效能，																													|
+	 Spring的isolation level參數就是用來對應用資料庫的isolation level設定																									|
+------------------------------------------------------------------------------------------------------------------------|
+ISOLATION_DEFAULT					:	使用底層資料庫的isolation設定																																|
+ISOLATION_READ_UNCOMMITTED:	允許讀取其它transaction還沒commit的資料，																										|
+														可能會發生dirty read、nonrepeatable read、phantom read等問題																|
+														(通常資料庫不支援，會讀到錯誤資料)																													|
+ISOLATION_READ_COMMITTED	:	只允許讀取其它transaction已經commit的資料，可以防止dirty read問題														|
+ISOLATION_REPEATABLE_READ	:	同一個transaction內多次讀取同1筆資料必須得到相同結果，																			|
+														可以防止dirty read、nonrepeatable read問題																									|
+ISOLATION_SERIALIZABLE		:	多個同時進行的transaction彼此之間真正完全獨立，																							|
+														可以防止dirty read、nonrepeatable read、phantom read等問題，																|
+														由於會鎖定對應的資料表格，因而導致嚴重的效能問題(只有一個人可以連進去)											|
+========================================================================================================================|
+
+
+========================================================================================================================|
+唯獨提示 (read-only hints)																																															|
+========================================================================================================================|
+1. 假設transaction中只執行select指令，通常可以使用底層資料庫在執行select指令時，對唯讀transaction的一些最佳化操作				|
+2. Spring的read-only hints參數就是設定是否需要使用資料庫對唯讀transaction的最佳化操作																		|
+3. 由於是應用在唯讀transaction上的最佳化操作，																																					|
+	 設定時必須搭配propagation behavior的PROPAGATION_REQUIRED或是PROPAGATION_REQUIRES_NEW																	|
+------------------------------------------------------------------------------------------------------------------------|
+
+
+========================================================================================================================|
+逾時區間 (timeout period)																																																|
+========================================================================================================================|
+1. 某些transaction可能需要較長時間的執行，甚至可能需要鎖定某些資料表格，																								|
+	 由於需要長時間執行的transaction會導致嚴重的效能問題																																	|
+2. 對於花費太長時間的transaction應該考慮rollback並重新執行，而不是無限時間的等待transaction完成													|
+3. Spring的timeout參數是於transaction啟動開始計時，																																			|
+	 所以使用時必須搭配propagation behavior的PROPAGATION_REQUIRED或是PROPAGATION_REQUIRES_NEW															|
+------------------------------------------------------------------------------------------------------------------------|
+
+
+========================================================================================================================|
+TRANSACTION ACID (資料庫軟體必須要做到的4件事)																																					|
+------------------------------------------------------------------------------------------------------------------------|
+Atomicity 	(不可分割性):	transaction裡面所做的所有事，要就都成功，不然就都失敗																					|
+Consistency	(一致性)		:	資料不會存在一個暫時狀態，要就停在前一個狀態，不然就停在後一個狀態，													|
+													EX:如果有兩個update要就都是成功的狀態，不然就是都沒update之前的狀態，													|
+														 沒有一個update一個沒update的狀態																														|
+Isolation 	(隔離性)		:	transaction的獨立性																																						|
+Durability 	(持久性)		:	transaction只要commit成功就一定進資料庫																												|
+========================================================================================================================|
+
+
+========================================================================================================================
+不需要再寫OpenSessionInViewFilter，由Spring控制，所以不需要再session.beginTransaction()
+1.
+	<bean id = "transactionManager" class="org.springframework.orm.hibernate4.HibernateTransactionManager">
+		<property name="sessionFactory" ref="sessionFactory"></property>
+	</bean>
+2.
+	<tx:annotation-driven transaction-manager="transactionManager" /> 
+3.
+	<context:annotation-config></context:annotation-config>
+4.
+	<context:component-scan base-package="model"></context:component-scan>
+5.
+	移除
+	properties.setProperty("hibernate.current_session_context_class", "thread"); 
